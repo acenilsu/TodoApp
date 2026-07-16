@@ -1,0 +1,113 @@
+﻿@page "/"
+@using TodoApp.UI // API modellerini tanımak için
+@inject HttpClient Http
+
+<PageTitle>Görev Yönetimi (UI)</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4 text-primary">📋 Görev Listem</h1>
+
+    <div class="card mb-4 shadow-sm">
+        <div class="card-body">
+            <h5 class="card-title">Yeni Görev Ekle</h5>
+            <div class="input-group mb-3">
+                <input type="text" class="form-control" placeholder="Görev başlığı girin..." @bind="newTaskTitle" />
+                <button class="btn btn-success" @onclick="AddTask">➕ Ekle</button>
+            </div>
+        </div>
+    </div>
+
+    @if (tasks == null)
+    {
+        <p><em>Görevler yükleniyor (JSON Data Transferi)...</em></p>
+    }
+    else
+    {
+        <table class="table table-hover table-striped shadow-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>Durum</th>
+                    <th>Başlık</th>
+                    <th>Oluşturulma Tarihi</th>
+                    <th>İşlem</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var task in tasks)
+                {
+                    <tr>
+                        <td>
+                            <input type="checkbox" checked="@task.IsCompleted" @onchange="() => ToggleComplete(task)" class="form-check-input" />
+                        </td>
+                        <td style="text-decoration: @(task.IsCompleted ? "line-through" : "none")">
+                            @task.Title
+                        </td>
+                        <td>@task.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                        <td>
+                            <button class="btn btn-danger btn-sm" @onclick="() => DeleteTask(task.Id)">🗑️ Sil</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+</div>
+
+@code {
+    private List<TaskItem>? tasks;
+    private string newTitle = "";
+    private string apiBaseUrl = "api/Todo";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTasks();
+    }
+
+    private async Task LoadTasks()
+    {
+        // JSON formatında verileri API'den çeker (GET)
+        tasks = await Http.GetFromJsonAsync<List<TaskItem>>(apiBaseUrl);
+    }
+    private string newTaskTitle = string.Empty;
+    private async Task AddTask()
+    {
+        if (string.IsNullOrWhiteSpace(newTaskTitle))
+            return;
+
+        try
+        {
+            // API sadece düz bir string title beklediği için doğrudan newTaskTitle değişkenini gönderiyoruz
+            var response = await Http.PostAsJsonAsync(apiBaseUrl, newTaskTitle);
+
+            if (response.IsSuccessStatusCode)
+            {
+                newTaskTitle = string.Empty; // Ekleme başarılıysa metin kutusunu temizle
+                await LoadTasks();          // Listeyi veritabanından anında yenile
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"API Hatası: {response.StatusCode} - {errorContent}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Bağlantı Hatası: {ex.Message}");
+        }
+    }
+
+    private async Task ToggleComplete(TaskItem task)
+    {
+        task.IsCompleted = !task.IsCompleted;
+        // Güncellenmiş nesneyi JSON olarak gönderir (PUT)
+        await Http.PutAsJsonAsync($"{apiBaseUrl}/{task.Id}", task);
+        await LoadTasks();
+    }
+
+    private async Task DeleteTask(int id)
+    {
+        // Belirtilen ID'deki görevi siler (DELETE)
+        await Http.DeleteAsync($"{apiBaseUrl}/{id}");
+        await LoadTasks();
+    }
+}

@@ -1,0 +1,15 @@
+[
+  {
+    "Name": "Yeni Profil",
+    "Projects": [
+      {
+        "Path": "TodoApp.API\\TodoApp.API.csproj",
+        "Action": "Start"
+      },
+      {
+        "Path": "..\\TodoApp.UI\\TodoApp.UI\\TodoApp.UI.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]

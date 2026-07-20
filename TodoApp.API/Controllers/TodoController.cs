@@ -1,32 +1,26 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
+using MySql.Data.MySqlClient;
 
 namespace TodoApp.API.Controllers
 {
-    using TodoApp.API;
-    using Microsoft.AspNetCore.Mvc;
-    using MySql.Data.MySqlClient;
-
-    namespace TodoApp.API.Controllers
+    [Route("api/Todo")]
+    [ApiController]
+    public class TodoController : ControllerBase
     {
-       
-        [Route("api/Todo")]
-        [ApiController]
-        public class TodoController : ControllerBase
+        private readonly string _connectionString;
+
+        public TodoController(IConfiguration configuration)
         {
-            private readonly string _connectionString;
+            _connectionString = configuration.GetConnectionString("DefaultConnection")!;
+        }
 
-            public TodoController(IConfiguration configuration)
+        // 1. Tüm Görevleri Listele (GET api/Todo)
+        [HttpGet]
+        public IActionResult GetTasks()
+        {
+            var tasks = new List<TaskItem>();
+            try
             {
-                _connectionString = configuration.GetConnectionString("DefaultConnection")!;
-            }
-
-            // 1. Tüm Görevleri Listele (GET api/todo)
-            [HttpGet]
-            public IActionResult GetTasks()
-            {
-                var tasks = new List<TaskItem>();
-
                 using (var connection = new MySqlConnection(_connectionString))
                 {
                     connection.Open();
@@ -48,13 +42,20 @@ namespace TodoApp.API.Controllers
                 }
                 return Ok(tasks);
             }
-
-            // 2. Yeni Görev Ekle (POST api/todo)
-            [HttpPost]
-            public IActionResult CreateTask([FromBody] string title)
+            catch (Exception ex)
             {
-                if (string.IsNullOrEmpty(title)) return BadRequest("Görev başlığı boş olamaz.");
+                return StatusCode(500, $"Veritabanı hatası: {ex.Message}");
+            }
+        }
 
+        // 2. Yeni Görev Ekle (POST api/Todo)
+        [HttpPost]
+        public IActionResult CreateTask([FromBody] string title)
+        {
+            if (string.IsNullOrWhiteSpace(title)) return BadRequest("Görev başlığı boş olamaz.");
+
+            try
+            {
                 using (var connection = new MySqlConnection(_connectionString))
                 {
                     connection.Open();
@@ -67,55 +68,65 @@ namespace TodoApp.API.Controllers
                 }
                 return Ok(new { message = "Görev başarıyla eklendi!" });
             }
-            // 3. Görevi Güncelle (PUT api/todo/id)
-            [HttpPut("{id}")]
-            public IActionResult UpdateTask(int id, [FromBody] TaskItem updatedItem)
+            catch (Exception ex)
             {
-                if (updatedItem == null) return BadRequest("Geçersiz veri.");
+                return StatusCode(500, $"Veritabanı hatası: {ex.Message}");
+            }
+        }
 
+        // 3. Görevi Güncelle (PUT api/Todo/5)
+        [HttpPut("{id}")]
+        public IActionResult UpdateTask(int id, [FromBody] TaskItem updatedItem)
+        {
+            if (updatedItem == null) return BadRequest("Geçersiz veri.");
+
+            try
+            {
                 using (var connection = new MySqlConnection(_connectionString))
                 {
                     connection.Open();
                     var query = "UPDATE tasks SET title = @title, is_completed = @isCompleted WHERE id = @id";
-
                     using (var command = new MySqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@title", updatedItem.Title);
                         command.Parameters.AddWithValue("@isCompleted", updatedItem.IsCompleted);
                         command.Parameters.AddWithValue("@id", id);
-
+                        
                         int rowsAffected = command.ExecuteNonQuery();
-                        if (rowsAffected == 0)
-                        {
-                            return NotFound(new { message = "Güncellenmek istenen görev bulunamadı!" });
-                        }
+                        if (rowsAffected == 0) return NotFound("Güncellenecek görev bulunamadı!");
                     }
                 }
-
                 return Ok(new { message = "Görev başarıyla güncellendi!" });
             }
-            // 4. Görevi Sil (DELETE api/todo/id)
-            [HttpDelete("{id}")]
-            public IActionResult DeleteTask(int id)
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Veritabanı hatası: {ex.Message}");
+            }
+        }
+
+        // 4. Görevi Sil (DELETE api/Todo/5)
+        [HttpDelete("{id}")]
+        public IActionResult DeleteTask(int id)
+        {
+            try
             {
                 using (var connection = new MySqlConnection(_connectionString))
                 {
                     connection.Open();
                     var query = "DELETE FROM tasks WHERE id = @id";
-
                     using (var command = new MySqlCommand(query, connection))
                     {
                         command.Parameters.AddWithValue("@id", id);
-
                         int rowsAffected = command.ExecuteNonQuery();
-                        if (rowsAffected == 0)
-                        {
-                            return NotFound(new { message = "Silinmek istenen görev bulunamadı!" });
-                        }
+                        
+                        if (rowsAffected == 0) return NotFound("Silinecek görev bulunamadı!");
                     }
                 }
-
                 return Ok(new { message = "Görev başarıyla silindi!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Veritabanı hatası: {ex.Message}");
             }
         }
     }

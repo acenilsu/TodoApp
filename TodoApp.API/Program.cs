@@ -9,16 +9,28 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// CORS ayarýný buraya ekliyoruz (UI'dan istek gelmesi için)
+// CORS ayarï¿½nï¿½ buraya ekliyoruz (UI'dan istek gelmesi iï¿½in)
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll",
         policy => policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 });
 
+// CORS ayarlarÄ±nÄ± servislere ekliyoruz
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
+
 var app = builder.Build();
 
-// 2. HTTP istek boru hattýný (pipeline) yapýlandýrýyoruz
+// 2. HTTP istek boru hattï¿½nï¿½ (pipeline) yapï¿½landï¿½rï¿½yoruz
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -28,6 +40,9 @@ if (app.Environment.IsDevelopment())
 app.UseCors("AllowAll");
 
 app.UseAuthorization();
+// CORS politikasÄ±nÄ± uygulamada aktif ediyoruz
+app.UseCors("AllowAll");
+
 app.MapControllers();
 
 app.Run();

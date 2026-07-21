@@ -1,0 +1,48 @@
+services:
+  mysql-db:
+    image: mysql:latest
+    container_name: todo-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: Password123
+      MYSQL_DATABASE: todo_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pPassword123"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  todo-api:
+    build:
+      context: ./TodoApp.API
+      dockerfile: Dockerfile
+    container_name: todo-api
+    restart: always
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=mysql-db;Port=3306;Database=todo_db;Uid=root;Pwd=Password123;"
+      ASPNETCORE_ENVIRONMENT: Production
+    ports:
+      - "5050:8080"
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+
+  todo-ui:
+    build:
+      context: ./TodoApp.UI
+      dockerfile: Dockerfile
+    container_name: todo-ui
+    restart: always
+    ports:
+      - "5001:80"
+    depends_on:
+      - todo-api
+
+volumes:
+  mysql_data:
